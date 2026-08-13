@@ -1,0 +1,324 @@
+<title>Burundi Compliance — Fork Architecture Guide</title>
+<meta name="description" content="What differs in the erpchampions/burundi-compliance fork: detached Sales Invoice customizations, the OBR Invoice Submission doctype, and load-bearing config details.">
+<style>
+  :root {
+    --paper: #fafaf6;
+    --surface: #f2f3ed;
+    --ink: #1a241c;
+    --ink-soft: #3d4a40;
+    --muted: #5c6b60;
+    --accent: #1e7a46;
+    --accent-ink: #15572f;
+    --warn: #c8102e;
+    --line: #e0e3da;
+    --code-bg: #eef0e8;
+    --code-ink: #2a3a2e;
+  }
+  :root[data-theme="dark"] {
+    --paper: #121613;
+    --surface: #191f1a;
+    --ink: #e9ede7;
+    --ink-soft: #c4cdc6;
+    --muted: #96a49a;
+    --accent: #42a66c;
+    --accent-ink: #6fce95;
+    --warn: #ef6a7d;
+    --line: #2a312b;
+    --code-bg: #1c221d;
+    --code-ink: #d3dcd4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #121613;
+      --surface: #191f1a;
+      --ink: #e9ede7;
+      --ink-soft: #c4cdc6;
+      --muted: #96a49a;
+      --accent: #42a66c;
+      --accent-ink: #6fce95;
+      --warn: #ef6a7d;
+      --line: #2a312b;
+      --code-bg: #1c221d;
+      --code-ink: #d3dcd4;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 40px;
+  }
+  .kicker {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  h1 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 40px;
+    line-height: 1.12;
+    font-weight: 600;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .subtitle {
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    margin: 0;
+  }
+  .subtitle a {
+    color: var(--accent-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  section {
+    margin: 0 0 40px;
+  }
+  h2 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 0 0 14px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h2 .num {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+    font-size: 13px;
+    color: var(--accent);
+    margin-right: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  p { margin: 0 0 14px; color: var(--ink); }
+  p, li { max-width: 65ch; }
+  .muted { color: var(--muted); }
+  strong { color: var(--ink); }
+  code {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--code-ink);
+    margin: 0 0 16px;
+  }
+  pre code { background: none; padding: 0; white-space: pre; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 16px;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  td:first-child code { color: var(--accent-ink); }
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 0 0 16px;
+    font-size: 15px;
+  }
+  .callout.warn {
+    border-left-color: var(--warn);
+  }
+  .callout .label {
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  ul { padding-left: 20px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; }
+  .flow {
+    list-style: none;
+    padding-left: 0;
+    counter-reset: step;
+  }
+  .flow li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 34px;
+    margin-bottom: 12px;
+  }
+  .flow li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--accent);
+    color: var(--accent-ink);
+    border-radius: 50%;
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  a { color: var(--accent-ink); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="kicker">erpchampions / burundi-compliance</p>
+    <h1>Fork Architecture Guide</h1>
+    <p class="subtitle">A supplement to the upstream
+      <a href="https://docs.navari.co.ke/burundi-compliance/getting-started/introduction">Burundi Compliance introduction</a>.
+      Read that first for the eBMS&nbsp;/&nbsp;OBR concepts; use this for what this fork changes.</p>
+  </header>
+
+  <section>
+    <h2><span class="num">1</span>The key change: Sales Invoice customizations are detached</h2>
+    <p><strong>Upstream (Navari)</strong> injects OBR fields directly onto the Sales Invoice doctype
+      via <code>custom/sales_invoice.json</code> — hundreds of custom fields (submission status, invoice
+      identifier, eBMS signature, registered number/date).</p>
+    <p><strong>This fork</strong> removes those fields from Sales Invoice and moves them into a dedicated
+      <code>OBR Invoice Submission</code> doctype.</p>
+    <div class="callout">
+      <span class="label">Why this matters</span>
+      Sales Invoice stays a stock, unmodified ERPNext doctype — no per-install custom-field churn and no
+      migration risk when ERPNext changes Sales Invoice. All OBR state lives in one place, simpler to query
+      and report on. The fork's <code>sales_invoice.json</code> is intentionally empty.
+    </div>
+    <pre><code>{ "custom_fields": [], "custom_perms": [], "doctype": "Sales Invoice", "links": [], "property_setters": [] }</code></pre>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>The OBR Invoice Submission doctype</h2>
+    <p>This is the fork's core record — one per submitted Sales Invoice / POS Invoice.</p>
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>sales_invoice</code></td><td>Link (Sales Invoice)</td><td>The source invoice (required)</td></tr>
+        <tr><td><code>payment_type</code></td><td>Select</td><td>Cash / Bank / Credit / Others (required)</td></tr>
+        <tr><td><code>defer_submission_to_obr</code></td><td>Check</td><td>Skip OBR on submit; send later</td></tr>
+        <tr><td><code>submitted_to_obr</code></td><td>Check</td><td><strong>eBMS Submission</strong> — OBR accepted it</td></tr>
+        <tr><td><code>ebms_invoice_cancelled</code></td><td>Check</td><td><strong>eBMS Invoice Cancelled</strong></td></tr>
+        <tr><td><code>invoice_registered_no</code></td><td>Data</td><td><strong>Invoice Registered No</strong> (from OBR)</td></tr>
+        <tr><td><code>invoice_registered_date</code></td><td>Date</td><td><strong>Invoice Registered Date</strong> (from OBR)</td></tr>
+        <tr><td><code>invoice_identifier</code></td><td>Data</td><td><strong>Invoice Identifier</strong> (from OBR)</td></tr>
+        <tr><td><code>einvoice_signatures</code></td><td>Small Text</td><td><strong>eBMS Signature</strong> (cryptographic)</td></tr>
+        <tr><td><code>reason_for_creditcancel</code></td><td>Text Editor</td><td>Reason for credit note / cancellation</td></tr>
+        <tr><td><code>amended_from</code></td><td>Link</td><td>Source record for amended / credit-note flows</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">Flow:</p>
+    <ol class="flow">
+      <li>User submits a Sales Invoice (or POS Invoice).</li>
+      <li><code>doc_events</code> → <code>create_obr_submission</code> fires and creates the linked <code>OBR Invoice Submission</code>.</li>
+      <li>A Payment Type prompt appears (Cash / Bank / Credit / Others).</li>
+      <li>The submission is queued to OBR in the background.</li>
+      <li>OBR signs the invoice → the submission record is updated with the status fields above.</li>
+    </ol>
+    <div class="callout warn">
+      <span class="label">Where to check status</span>
+      Open the <code>OBR Invoice Submission</code> record — <em>not</em> the Sales Invoice. The upstream docs point
+      at Sales Invoice fields; in this fork those fields no longer exist there.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>eBIMS Actions buttons</h2>
+    <p>The <strong>eBIMS Actions</strong> buttons (<code>Get Invoice</code>, <code>Re-Submit</code>,
+      <code>Cancel Invoice in OBR</code>) are driven by the associated <code>OBR Invoice Submission</code> record.
+      If no submission record exists — e.g. a legacy invoice created before the app was installed — the buttons
+      will not appear.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>Load-bearing config details</h2>
+    <p>These match upstream, but two naming details are load-bearing in code and easy to get wrong.</p>
+    <h3 style="font-family: system-ui, sans-serif; font-size: 16px; margin: 18px 0 6px;">Endpoint URLs must be named <code>SandBox</code> and <code>Production</code></h3>
+    <p class="muted">The doctype is autonamed <code>format:{environment}</code>, and <code>get_urls()</code>
+      looks the record up by name:</p>
+    <pre><code># utils/utils.py
+if environment == "sandbox":
+    endpoint_doc = frappe.get_doc("eBMS Endpoint URLs", "SandBox")
+else:
+    endpoint = frappe.get_doc("eBMS Endpoint URLs", "Production")</code></pre>
+    <p>Create <strong>two</strong> records, named exactly <code>SandBox</code> and <code>Production</code>, each with
+      the six endpoints (<code>login</code>, <code>add_invoice</code>, <code>get_invoice</code>,
+      <code>cancel_invoice</code>, <code>check_TIN</code>, <code>add_stock_movement</code>).</p>
+    <h3 style="font-family: system-ui, sans-serif; font-size: 16px; margin: 18px 0 6px;">eBMS Settings is autonamed by Company</h3>
+    <p class="muted"><code>eBMS Settings</code> is autonamed <code>field:company</code> — one record per company,
+      looked up by company name. The <code>TIN</code> field on the settings form is read-only
+      (<code>fetch_from: company.tax_id</code>); set the TIN on the <strong>Company</strong> doctype's
+      <code>Tax ID</code>, not on the settings form.</p>
+    <h3 style="font-family: system-ui, sans-serif; font-size: 16px; margin: 18px 0 6px;">TIN source of truth</h3>
+    <p class="muted">The invoice payload reads the TIN from <code>company.tax_id</code>, not from eBMS Settings:</p>
+    <pre><code># utils/build_invoice_payload.py
+company_tax_id = company.tax_id
+...
+"tp_TIN": company_tax_id,</code></pre>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>Version support</h2>
+    <p><code>pyproject.toml</code> declares <code>frappe = "&gt;=15.0.0,&lt;17.0.0"</code>. Installed and migrated
+      successfully on <strong>Frappe 15.110.0</strong> (ERPNext 15). No v16-only APIs are used.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span>Migration note for existing Navari installs</h2>
+    <p>If you're migrating a site that previously used the <strong>upstream</strong> app (OBR fields on Sales
+      Invoice):</p>
+    <ul>
+      <li>The old Sales Invoice custom fields are <em>not</em> migrated into <code>OBR Invoice Submission</code> automatically.</li>
+      <li>Historical OBR submission state that lived on Sales Invoice will not appear in the new <code>OBR Invoice Submission</code> list.</li>
+      <li>Plan a data backfill if you need to preserve historical signing state.</li>
+    </ul>
+  </section>
+</div>
