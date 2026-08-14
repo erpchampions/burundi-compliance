@@ -197,25 +197,48 @@ def get_payment_method(payment_type: str) -> str:
         return "4"
 
 
+def get_item_vat_map(doc) -> dict:
+    """Return per-item VAT amount keyed by item row name.
+
+    ERPNext v16 stores an item-wise tax breakdown in the ``Item Wise Tax Detail``
+    child table. v15 has no such table — taxes are held on ``doc.taxes`` and
+    allocated to items by their net amount. Handle both so the app runs on v15
+    and v16.
+    """
+    vat_map = {}
+
+    if frappe.db.exists("DocType", "Item Wise Tax Detail"):
+        rows = frappe.get_all(
+            "Item Wise Tax Detail",
+            filters={"parent": doc.name},
+            fields=["item_row", "rate", "amount"],
+        )
+        for row in rows:
+            if (row.get("rate") or 0) > 0:
+                vat_map[row.get("item_row")] = vat_map.get(row.get("item_row"), 0) + (
+                    row.get("amount") or 0
+                )
+        return vat_map
+
+    # v15 fallback: allocate invoice-level taxes to items by net amount.
+    for item in doc.items:
+        total_vat = 0.0
+        net_amount = abs(item.get("net_amount") or 0)
+        for tax in doc.get("taxes") or []:
+            if tax.get("charge_type") == "On Net Total" and (tax.get("rate") or 0) > 0:
+                total_vat += net_amount * tax.get("rate") / 100
+        vat_map[item.name] = total_vat
+
+    return vat_map
+
+
 def get_invoice_items(doc):
     items = []
 
-    item_wise_tax_details = frappe.get_all(
-        "Item Wise Tax Detail", filters={"parent": doc.name}, fields=["*"]
-    )
+    item_vat_map = get_item_vat_map(doc)
 
     for item in doc.items:
-        item_taxes = [
-            tax
-            for tax in item_wise_tax_details
-            if str(tax["item_row"]) == str(item.name)
-        ]
-
-        total_vat = 0
-
-        for tax in item_taxes:
-            if tax.get("rate", 0) > 0:
-                total_vat += tax.get("amount", 0)
+        total_vat = abs(item_vat_map.get(item.name, 0) or 0)
 
         item_designation = (
             item.description
@@ -225,7 +248,6 @@ def get_invoice_items(doc):
             )
         )
 
-        total_vat = abs(total_vat)
         item_amount = abs(item.amount)
 
         items.append(
