@@ -51,7 +51,7 @@ def build_invoice_payload(doc: Document, settings_doc: Document) -> dict:
             invoice_signature,
             update_modified=False,
         )
-        payment_type = get_payment_method(obr_submission.payment_type)
+        payment_type = get_payment_method(doc.custom_payment_types)
         
     confirm_tin_verified(doc.customer)
     if doc.doctype == "POS Invoice":
@@ -195,14 +195,33 @@ def get_payment_method(payment_type: str) -> str:
         return "4"
 
 
-def get_item_vat_map(doc) -> dict:
-    """Return per-item VAT amount keyed by item row name.
+def is_pfir_tax(doc, tax) -> bool:
+    """PFIR is the lubricants levy; OBR reports it in item_tl, not in VAT."""
+    if doc.doctype == "POS Invoice":
+        return False
+    text = f"{tax.get('account_head') or ''} {tax.get('description') or ''}".lower()
+    return "pfir" in text
 
-    ERPNext v16 stores an item-wise tax breakdown in the ``Item Wise Tax Detail``
-    child table. v15 has no such table — taxes are held on ``doc.taxes`` and
-    allocated to items by their net amount. Handle both so the app runs on v15
-    and v16.
-    """
+
+def get_item_pfir_map(doc) -> dict:
+    """Per-item PFIR amount, keyed by item row name."""
+    pfir_map = {}
+    for item in doc.items:
+        net_amount = abs(item.get("net_amount") or 0)
+        total = 0.0
+        for tax in doc.get("taxes") or []:
+            if (
+                is_pfir_tax(doc, tax)
+                and tax.get("charge_type") == "On Net Total"
+                and (tax.get("rate") or 0) > 0
+            ):
+                total += net_amount * tax.get("rate") / 100
+        pfir_map[item.name] = total
+    return pfir_map
+
+
+def get_item_vat_map(doc) -> dict:
+   
     vat_map = {}
 
     if frappe.db.exists("DocType", "Item Wise Tax Detail"):
@@ -223,8 +242,13 @@ def get_item_vat_map(doc) -> dict:
         total_vat = 0.0
         net_amount = abs(item.get("net_amount") or 0)
         for tax in doc.get("taxes") or []:
-            if tax.get("charge_type") == "On Net Total" and (tax.get("rate") or 0) > 0:
+            if (
+                tax.get("charge_type") == "On Net Total"
+                and (tax.get("rate") or 0) > 0
+                and not is_pfir_tax(doc, tax)
+            ):
                 total_vat += net_amount * tax.get("rate") / 100
+            
         vat_map[item.name] = total_vat
 
     return vat_map
@@ -234,9 +258,11 @@ def get_invoice_items(doc):
     items = []
 
     item_vat_map = get_item_vat_map(doc)
+    item_pfir_map = get_item_pfir_map(doc)
 
     for item in doc.items:
         total_vat = abs(item_vat_map.get(item.name, 0) or 0)
+        total_pfir = abs(item_pfir_map.get(item.name, 0) or 0)
 
         item_designation = (
             item.description
@@ -257,7 +283,7 @@ def get_invoice_items(doc):
                 "item_total_amount": item_amount,
                 "vat": total_vat,
                 "item_ct": "0",
-                "item_tl": "0",
+                "item_tl": str(round(total_pfir, 2)) if total_pfir else "0",
                 "item_price_nvat": item_amount,
                 "item_price_wvat": item_amount + total_vat,
             }
