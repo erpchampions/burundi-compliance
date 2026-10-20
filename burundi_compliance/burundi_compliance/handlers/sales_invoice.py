@@ -27,14 +27,12 @@ def handle_sales_invoice_submission(
                     "invoice_registered_date": invoice_registered_date,
                 })
             else:
-                obr_doc = frappe.new_doc("OBR Invoice Submission")
-                obr_doc.sales_invoice = document_name
-                obr_doc.submitted_to_obr = 1
-                obr_doc.einvoice_signatures = electronic_signature
-                obr_doc.invoice_registered_no = invoice_registered_number
-                obr_doc.invoice_registered_date = invoice_registered_date
-                obr_doc.insert(ignore_permissions=True)
+                frappe.log_error(
+                    f"No OBR Invoice Submission found for Sales Invoice {document_name}",
+                    "OBR Invoice Submission Missing"
+                )
         else:
+
             # POS Invoice — update fields directly as before
             data_to_update = {
                 "custom_einvoice_signatures": electronic_signature,
@@ -47,7 +45,6 @@ def handle_sales_invoice_submission(
         frappe.db.commit()
     except Exception as e:
         frappe.log_error(f"Error updating {doctype} {document_name}: {str(e)}")
-
 
 def handle_sales_invoice_cancellation(
     response: dict, document_name: str, doctype: str
